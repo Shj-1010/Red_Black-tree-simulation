@@ -307,7 +307,7 @@ function resetAll(){
 
 /* ============== 이벤트 ============== */
 function syncStartLabel(){
-  btnStart.textContent = (modeSel.value==='btree') ? '시작 (무작위 25/10)' : '시작 (무작위 10/5)';
+  btnStart.textContent = (modeSel.value==='btree') ? '시작 (25/10)' : '시작 (10/5)';
 }
 modeSel.addEventListener('change', ()=>{ degBox.style.display = (modeSel.value==='btree') ? 'inline-block' : 'none'; syncStartLabel(); resetAll(); });
 orderM.addEventListener('change', ()=>{ if(modeSel.value==='btree') resetAll(); });
@@ -320,3 +320,4 @@ btnReset.addEventListener('click', resetAll);
 syncStartLabel(); rebuildEngine(); draw();
 
 })(); // IIFE
+
