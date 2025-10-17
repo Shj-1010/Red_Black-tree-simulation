@@ -26,18 +26,17 @@
   }
   button:hover{transform:translateY(-1px); background:#21345d}
   button:disabled{opacity:.5; cursor:not-allowed; transform:none}
-  .stat{font-size:12px;color:var(--muted)}
   .rows{display:grid;grid-template-columns:1fr;gap:8px;margin-top:12px}
   .row{background:var(--panel);padding:12px;border:1px solid #15213d;border-radius:12px}
   .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
   #svgWrap{background:#0e1528;border:1px solid #15213d;border-radius:12px;margin-top:14px;overflow:auto}
   svg{display:block;width:100%;min-height:480px}
-  .legend{display:flex;gap:16px;align-items:center;color:var(--muted);font-size:13px;margin-top:6px}
+  .legend{display:flex;gap:16px;align-items:center;color:#9aa4b2;font-size:13px;margin-top:6px}
   .dot{width:12px;height:12px;border-radius:50%}
   .dot.red{background:var(--red)}
   .dot.black{background:var(--black)}
-  .toast{margin-left:auto;color:#cbd5e1;font-size:13px}
   .chip{display:inline-flex;align-items:center;gap:6px;background:#162240;border:1px solid #22325a;border-radius:999px;padding:6px 10px;font-size:13px}
+  .toast{margin-left:auto;color:#cbd5e1;font-size:13px}
 </style>
 </head>
 <body>
@@ -45,7 +44,8 @@
   <h1>레드-블랙 트리 시뮬레이터</h1>
 
   <div class="toolbar">
-    <button id="btnStart">시작</button>
+    <button id="btnStart">시작 (무작위 10/5)</button>
+    <button id="btnPrev" disabled>이전 단계</button>
     <button id="btnNext" disabled>다음 단계</button>
     <button id="btnReset">초기화</button>
     <span class="toast" id="status">준비되었습니다.</span>
@@ -72,24 +72,13 @@
 </div>
 
 <script>
-/* ============================================================
-   Red-Black Tree (삽입/삭제: 슬라이드 규칙 기반)
-   - RED = true, BLACK = false
-   - sentinel NIL 사용
-   - 삽입: Case1/2/3 (mirror 포함)
-   - 삭제: sibling RED → 회전 후 2-x 계열, 2-1(형제/자식 모두 BLACK),
-           *-3(내측 자식 RED → 형제 회전해 *-2로), *-2/2-4(외측 자식 RED → 부모 회전·색교환)
-   ============================================================ */
-
+/* ========= RBT 구현 (질문에서 준 규칙 기반) ========= */
 const RED = true, BLACK = false;
 
 class Node {
   constructor(key=null, color=BLACK, left=null, right=null, parent=null){
-    this.key = key;
-    this.color = color;
-    this.left = left;
-    this.right = right;
-    this.parent = parent;
+    this.key = key; this.color = color;
+    this.left = left; this.right = right; this.parent = parent;
   }
 }
 
@@ -98,192 +87,107 @@ class RBT {
     this.NIL = new Node(null, BLACK);
     this.root = this.NIL;
   }
-
   leftRotate(x){
     const y = x.right;
-    x.right = y.left;
-    if (y.left !== this.NIL) y.left.parent = x;
+    x.right = y.left; if (y.left!==this.NIL) y.left.parent = x;
     y.parent = x.parent;
-    if (x.parent === this.NIL)      this.root = y;
-    else if (x === x.parent.left)   x.parent.left = y;
-    else                            x.parent.right = y;
-    y.left = x;
-    x.parent = y;
+    if (x.parent===this.NIL) this.root = y;
+    else if (x===x.parent.left) x.parent.left = y;
+    else x.parent.right = y;
+    y.left = x; x.parent = y;
   }
-
   rightRotate(x){
     const y = x.left;
-    x.left = y.right;
-    if (y.right !== this.NIL) y.right.parent = x;
+    x.left = y.right; if (y.right!==this.NIL) y.right.parent = x;
     y.parent = x.parent;
-    if (x.parent === this.NIL)      this.root = y;
-    else if (x === x.parent.right)  x.parent.right = y;
-    else                            x.parent.left = y;
-    y.right = x;
-    x.parent = y;
+    if (x.parent===this.NIL) this.root = y;
+    else if (x===x.parent.right) x.parent.right = y;
+    else x.parent.left = y;
+    y.right = x; x.parent = y;
   }
-
   insert(key){
     const z = new Node(key, RED, this.NIL, this.NIL, this.NIL);
-    let y = this.NIL, x = this.root;
-    while (x !== this.NIL){
-      y = x;
-      x = (z.key < x.key) ? x.left : x.right;
-    }
+    let y=this.NIL, x=this.root;
+    while(x!==this.NIL){ y=x; x = (z.key<x.key)?x.left:x.right; }
     z.parent = y;
-    if (y === this.NIL) this.root = z;
-    else if (z.key < y.key) y.left = z;
-    else y.right = z;
-
+    if (y===this.NIL) this.root = z;
+    else if (z.key<y.key) y.left = z; else y.right = z;
     this.insertFix(z);
   }
-
   insertFix(z){
-    while (z.parent.color === RED){
-      if (z.parent === z.parent.parent.left){
+    while(z.parent.color===RED){
+      if (z.parent===z.parent.parent.left){
         const y = z.parent.parent.right; // uncle
-        if (y.color === RED){ // Case 1: parent & uncle RED
-          z.parent.color = BLACK; y.color = BLACK;
-          z.parent.parent.color = RED;
-          z = z.parent.parent;
+        if (y.color===RED){ // Case 1
+          z.parent.color=BLACK; y.color=BLACK; z.parent.parent.color=RED; z=z.parent.parent;
         } else {
-          if (z === z.parent.right){ // Case 2: triangle
-            z = z.parent; this.leftRotate(z);
-          }
-          // Case 3: line
-          z.parent.color = BLACK;
-          z.parent.parent.color = RED;
-          this.rightRotate(z.parent.parent);
+          if (z===z.parent.right){ z=z.parent; this.leftRotate(z);} // Case 2
+          z.parent.color=BLACK; z.parent.parent.color=RED; this.rightRotate(z.parent.parent); // Case 3
         }
       } else {
         const y = z.parent.parent.left; // mirror
-        if (y.color === RED){
-          z.parent.color = BLACK; y.color = BLACK;
-          z.parent.parent.color = RED;
-          z = z.parent.parent;
+        if (y.color===RED){
+          z.parent.color=BLACK; y.color=BLACK; z.parent.parent.color=RED; z=z.parent.parent;
         } else {
-          if (z === z.parent.left){
-            z = z.parent; this.rightRotate(z);
-          }
-          z.parent.color = BLACK;
-          z.parent.parent.color = RED;
-          this.leftRotate(z.parent.parent);
+          if (z===z.parent.left){ z=z.parent; this.rightRotate(z);} 
+          z.parent.color=BLACK; z.parent.parent.color=RED; this.leftRotate(z.parent.parent);
         }
       }
     }
-    this.root.color = BLACK;
+    this.root.color=BLACK;
   }
-
-  transplant(u, v){
-    if (u.parent === this.NIL) this.root = v;
-    else if (u === u.parent.left) u.parent.left = v;
-    else u.parent.right = v;
-    v.parent = u.parent;
+  transplant(u,v){
+    if (u.parent===this.NIL) this.root=v;
+    else if (u===u.parent.left) u.parent.left=v;
+    else u.parent.right=v;
+    v.parent=u.parent;
   }
-
-  minimum(x){
-    while (x.left !== this.NIL) x = x.left;
-    return x;
-  }
-
-  find(key){
-    let z = this.root;
-    while (z !== this.NIL && z.key !== key){
-      z = (key < z.key) ? z.left : z.right;
+  minimum(x){ while(x.left!==this.NIL) x=x.left; return x; }
+  find(k){ let z=this.root; while(z!==this.NIL && z.key!==k){ z=(k<z.key)?z.left:z.right; } return z; }
+  delete(k){
+    let z=this.find(k); if (z===this.NIL) return false;
+    let y=z, yOrig=y.color, x;
+    if (z.left===this.NIL){ x=z.right; this.transplant(z,z.right); }
+    else if (z.right===this.NIL){ x=z.left; this.transplant(z,z.left); }
+    else{
+      y=this.minimum(z.right); yOrig=y.color; x=y.right;
+      if (y.parent===z) x.parent=y;
+      else { this.transplant(y,y.right); y.right=z.right; y.right.parent=y; }
+      this.transplant(z,y); y.left=z.left; y.left.parent=y; y.color=z.color;
     }
-    return z;
-  }
-
-  delete(key){
-    let z = this.find(key);
-    if (z === this.NIL) return false;
-
-    let y = z, yOrig = y.color, x;
-    if (z.left === this.NIL){
-      x = z.right; this.transplant(z, z.right);
-    } else if (z.right === this.NIL){
-      x = z.left;  this.transplant(z, z.left);
-    } else {
-      y = this.minimum(z.right); yOrig = y.color; x = y.right;
-      if (y.parent === z) x.parent = y;
-      else {
-        this.transplant(y, y.right);
-        y.right = z.right; y.right.parent = y;
-      }
-      this.transplant(z, y);
-      y.left = z.left; y.left.parent = y;
-      y.color = z.color;
-    }
-    if (yOrig === BLACK) this.deleteFix(x);
+    if (yOrig===BLACK) this.deleteFix(x);
     return true;
   }
-
   deleteFix(x){
-    while (x !== this.root && x.color === BLACK){
-      if (x === x.parent.left){
-        let w = x.parent.right; // sibling
-        if (w.color === RED){ // sibling RED → rotate, convert to 2-x
-          w.color = BLACK; x.parent.color = RED;
-          this.leftRotate(x.parent);
-          w = x.parent.right;
-        }
-        if (w.left.color === BLACK && w.right.color === BLACK){
-          // Case 2-1: sibling&children BLACK → recolor sibling
-          w.color = RED; x = x.parent;
-        } else {
-          if (w.right.color === BLACK){
-            // Case *-3: inner nephew RED → rotate sibling
-            w.left.color = BLACK; w.color = RED;
-            this.rightRotate(w);
-            w = x.parent.right;
-          }
-          // Case *-2 / 2-4: outer nephew RED → rotate parent & recolor
-          w.color = x.parent.color; x.parent.color = BLACK; w.right.color = BLACK;
-          this.leftRotate(x.parent);
-          x = this.root;
+    while(x!==this.root && x.color===BLACK){
+      if (x===x.parent.left){
+        let w=x.parent.right;
+        if (w.color===RED){ w.color=BLACK; x.parent.color=RED; this.leftRotate(x.parent); w=x.parent.right; }
+        if (w.left.color===BLACK && w.right.color===BLACK){ w.color=RED; x=x.parent; }
+        else{
+          if (w.right.color===BLACK){ w.left.color=BLACK; w.color=RED; this.rightRotate(w); w=x.parent.right; }
+          w.color=x.parent.color; x.parent.color=BLACK; w.right.color=BLACK; this.leftRotate(x.parent); x=this.root;
         }
       } else {
-        let w = x.parent.left; // mirror
-        if (w.color === RED){
-          w.color = BLACK; x.parent.color = RED;
-          this.rightRotate(x.parent);
-          w = x.parent.left;
-        }
-        if (w.right.color === BLACK && w.left.color === BLACK){
-          w.color = RED; x = x.parent;
-        } else {
-          if (w.left.color === BLACK){
-            w.right.color = BLACK; w.color = RED;
-            this.leftRotate(w);
-            w = x.parent.left;
-          }
-          w.color = x.parent.color; x.parent.color = BLACK; w.left.color = BLACK;
-          this.rightRotate(x.parent);
-          x = this.root;
+        let w=x.parent.left;
+        if (w.color===RED){ w.color=BLACK; x.parent.color=RED; this.rightRotate(x.parent); w=x.parent.left; }
+        if (w.right.color===BLACK && w.left.color===BLACK){ w.color=RED; x=x.parent; }
+        else{
+          if (w.left.color===BLACK){ w.right.color=BLACK; w.color=RED; this.leftRotate(w); w=x.parent.left; }
+          w.color=x.parent.color; x.parent.color=BLACK; w.left.color=BLACK; this.rightRotate(x.parent); x=this.root;
         }
       }
     }
-    x.color = BLACK;
+    x.color=BLACK;
   }
-
-  // ---------- layout & draw ----------
-  // inorder x-index, depth y
   positions(){
-    const pos = new Map(); let idx = 0;
-    const dfs = (n, d=0)=>{
-      if (n===this.NIL) return;
-      dfs(n.left, d+1);
-      pos.set(n, {x: idx++, y: d});
-      dfs(n.right, d+1);
-    };
-    dfs(this.root, 0); return pos;
+    const pos=new Map(); let idx=0;
+    const dfs=(n,d=0)=>{ if(n===this.NIL) return; dfs(n.left,d+1); pos.set(n,{x:idx++,y:d}); dfs(n.right,d+1); };
+    dfs(this.root,0); return pos;
   }
 }
 
-/* ============================================================
-   UI State & Controls
-   ============================================================ */
-
+/* ================ UI/상태 ================ */
 const svg = document.getElementById('treeSvg');
 const seqInsert = document.getElementById('seqInsert');
 const seqDelete = document.getElementById('seqDelete');
@@ -292,162 +196,119 @@ const status = document.getElementById('status');
 const currentStepSpan = document.getElementById('currentStep');
 const leftStepsSpan = document.getElementById('leftSteps');
 const btnStart = document.getElementById('btnStart');
+const btnPrev = document.getElementById('btnPrev');
 const btnNext = document.getElementById('btnNext');
 const btnReset = document.getElementById('btnReset');
 
 let rbt = new RBT();
-let steps = [];            // [{op:'ins'|'del', val:number}]
-let stepPtr = 0;
+let steps = [];   // [{op:'ins'|'del', val:number}]
+let stepPtr = 0;  // 0..steps.length
 let insArr = [], delArr = [];
 
 function randintSample(n, lo, hi){
-  const pool = [];
-  for (let v=lo; v<=hi; v++) pool.push(v);
-  // Fisher-Yates
-  for (let i=pool.length-1; i>0; i--){
-    const j = Math.floor(Math.random()*(i+1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  return pool.slice(0, n).sort((a,b)=>a-b); // 정렬된 삽입이 이해 쉬움 (원하면 무작위 표시로 바꿔도 무방)
+  const pool=[]; for(let v=lo; v<=hi; v++) pool.push(v);
+  for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  return pool.slice(0,n);
 }
-function shuffle(a){
-  for (let i=a.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];
-  }
-  return a;
-}
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 function start(){
-  rbt = new RBT();
-  svg.innerHTML = '';
-  logBox.textContent = '';
-  stepPtr = 0;
+  rbt = new RBT(); svg.innerHTML=''; logBox.textContent=''; stepPtr=0;
 
-  // 1) 1..50 중 10개
-  insArr = randintSample(10,1,50);
-  // 실제 “보여주는” 순서는 무작위가 자연스러우므로 삽입/삭제 표시는 무작위로, 내부 steps도 그 순서 사용
-  insArr = shuffle(insArr.slice());
-
-  // 2) 그중 5개 삭제
+  insArr = shuffle(randintSample(10,1,50));
   delArr = shuffle(insArr.slice()).slice(0,5);
 
-  // 3) 스텝 만들기
-  steps = [];
-  for(const v of insArr) steps.push({op:'ins', val:v});
-  for(const v of delArr) steps.push({op:'del', val:v});
+  steps = []; for(const v of insArr) steps.push({op:'ins',val:v});
+             for(const v of delArr) steps.push({op:'del',val:v});
 
-  // 4) 표시
   seqInsert.textContent = '삽입: ' + insArr.join(', ');
   seqDelete.textContent = '삭제: ' + delArr.join(', ');
-  leftStepsSpan.textContent = steps.length - stepPtr;
-  currentStepSpan.textContent = '—';
-  status.textContent = '시작되었습니다. [다음 단계] 를 눌러 진행하세요.';
-  btnNext.disabled = steps.length===0;
+  currentStepSpan.textContent='—';
+  updateButtons();
+  status.textContent='시작되었습니다. [다음 단계] / [이전 단계]로 탐색하세요.';
   drawTree();
 }
-
-function nextStep(){
-  if (stepPtr >= steps.length){ status.textContent='모든 단계가 완료되었습니다.'; btnNext.disabled=true; return; }
-  const s = steps[stepPtr++];
-  if (s.op==='ins'){
-    rbt.insert(s.val);
-    log(`삽입: ${s.val}`);
-    currentStepSpan.textContent = `${s.val} 삽입`;
-  } else {
-    rbt.delete(s.val);
-    log(`삭제: ${s.val}`);
-    currentStepSpan.textContent = `${s.val} 삭제`;
-  }
-  leftStepsSpan.textContent = steps.length - stepPtr;
-  if (stepPtr >= steps.length) btnNext.disabled = true;
-  drawTree();
-}
-
 function resetAll(){
   rbt = new RBT(); steps=[]; stepPtr=0; insArr=[]; delArr=[];
-  seqInsert.textContent='삽입: -';
-  seqDelete.textContent='삭제: -';
-  currentStepSpan.textContent='—';
-  leftStepsSpan.textContent='0';
-  status.textContent='초기화되었습니다.';
-  svg.innerHTML='';
-  logBox.textContent='';
-  btnNext.disabled = true;
+  seqInsert.textContent='삽입: -'; seqDelete.textContent='삭제: -';
+  currentStepSpan.textContent='—'; leftStepsSpan.textContent='0';
+  status.textContent='초기화되었습니다.'; svg.innerHTML=''; logBox.textContent='';
+  updateButtons();
 }
 
-function log(t){
-  logBox.textContent += t + '\n';
-  logBox.scrollTop = logBox.scrollHeight;
-}
-
-/* ============================================================
-   Drawing (SVG)
-   - inorder x index → 간단한 균형 좌표 배치
-   - edge: var(--edge), node: fill red/black, text는 대비색
-   ============================================================ */
-
-function drawTree(){
-  svg.innerHTML = '';
-  // 빈 트리
-  if (rbt.root === rbt.NIL){
-    const txt = makeSVG('text',{x:24,y:40,fill:'#93a3b8','font-size':16}, 'empty');
-    svg.appendChild(txt); return;
+function replayTo(ptr){
+  rbt = new RBT();
+  for(let i=0;i<ptr;i++){
+    const s=steps[i];
+    if (s.op==='ins') rbt.insert(s.val);
+    else rbt.delete(s.val);
   }
+  drawTree();
+}
 
-  const pos = rbt.positions();                      // Map<Node,{x,y}>
-  // 간격 조정
-  const nodes = [...pos.keys()];
-  const xs = nodes.map(n=>pos.get(n).x);
-  const ys = nodes.map(n=>pos.get(n).y);
-  const maxX = Math.max(...xs), maxY = Math.max(...ys);
-  const dx = 90, dy = 90, padX = 60, padY = 60;
+function prevStep(){
+  if (stepPtr<=0) return;
+  stepPtr -= 1;
+  replayTo(stepPtr);
+  const last = stepPtr>0 ? steps[stepPtr-1] : null;
+  currentStepSpan.textContent = last ? `${last.val} ${last.op==='ins'?'삽입 완료':''}${last.op==='del'?'삭제 완료':''}` : '—';
+  log(`⏪ 되돌리기: ${steps[stepPtr].val} ${steps[stepPtr].op==='ins'?'삽입':'삭제'}`);
+  updateButtons();
+}
+function nextStep(){
+  if (stepPtr>=steps.length) return;
+  const s = steps[stepPtr++];
+  if (s.op==='ins'){ rbt.insert(s.val); log(`삽입: ${s.val}`); currentStepSpan.textContent=`${s.val} 삽입`; }
+  else { rbt.delete(s.val); log(`삭제: ${s.val}`); currentStepSpan.textContent=`${s.val} 삭제`; }
+  drawTree();
+  updateButtons();
+}
+function updateButtons(){
+  leftStepsSpan.textContent = (steps.length - stepPtr).toString();
+  btnPrev.disabled = (stepPtr===0);
+  btnNext.disabled = (stepPtr>=steps.length || steps.length===0);
+}
 
-  svg.setAttribute('viewBox', `0 0 ${padX*2 + dx*(maxX+1)} ${padY*2 + dy*(maxY+1)}`);
+function log(t){ logBox.textContent += t + '\n'; logBox.scrollTop = logBox.scrollHeight; }
 
-  // edges
+/* ================ 그리기 ================ */
+function drawTree(){
+  svg.innerHTML='';
+  if (rbt.root===rbt.NIL){
+    svg.appendChild(makeSVG('text',{x:24,y:40,fill:'#93a3b8','font-size':16},'empty')); return;
+  }
+  const pos = rbt.positions();
+  const nodes=[...pos.keys()];
+  const xs=nodes.map(n=>pos.get(n).x), ys=nodes.map(n=>pos.get(n).y);
+  const maxX=Math.max(...xs), maxY=Math.max(...ys);
+  const dx=90, dy=90, padX=60, padY=60;
+  svg.setAttribute('viewBox',`0 0 ${padX*2+dx*(maxX+1)} ${padY*2+dy*(maxY+1)}`);
+
   for(const n of nodes){
-    const p = pos.get(n);
-    for(const child of [n.left, n.right]){
-      if (child !== rbt.NIL){
-        const pc = pos.get(child);
+    const p=pos.get(n);
+    for(const c of [n.left,n.right]){
+      if (c!==rbt.NIL){
+        const pc=pos.get(c);
         svg.appendChild(makeSVG('line',{
-          x1: padX + p.x*dx, y1: padY + p.y*dy + 6,
-          x2: padX + pc.x*dx, y2: padY + pc.y*dy - 6,
-          stroke: getComputedStyle(document.documentElement).getPropertyValue('--edge').trim(),
-          'stroke-width': 2
+          x1:padX+p.x*dx,y1:padY+p.y*dy+6,x2:padX+pc.x*dx,y2:padY+pc.y*dy-6,
+          stroke:getCSS('--edge'),'stroke-width':2
         }));
       }
     }
   }
-
-  // nodes
   for(const n of nodes){
-    const p = pos.get(n);
-    const cx = padX + p.x*dx, cy = padY + p.y*dy;
-    const fill = n.color===RED ? getCSS('--red') : getCSS('--black');
-    svg.appendChild(makeSVG('circle',{cx,cy,r:20, fill}));
-    svg.appendChild(makeSVG('text',{
-      x:cx, y:cy+5, 'font-size':16, 'font-weight':700,
-      'text-anchor':'middle', fill: n.color===RED ? '#111827' : '#e5e7eb'
-    }, String(n.key)));
+    const p=pos.get(n); const cx=padX+p.x*dx, cy=padY+p.y*dy;
+    const fill = (n.color===RED)?getCSS('--red'):getCSS('--black');
+    svg.appendChild(makeSVG('circle',{cx,cy,r:20,fill}));
+    svg.appendChild(makeSVG('text',{x:cx,y:cy+5,'font-size':16,'font-weight':700,'text-anchor':'middle',fill:(n.color===RED?'#111827':'#e5e7eb')}, String(n.key)));
   }
 }
+function getCSS(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function makeSVG(tag, attrs, text=''){ const e=document.createElementNS('http://www.w3.org/2000/svg',tag); for(const k in attrs)e.setAttribute(k,attrs[k]); if(text)e.textContent=text; return e; }
 
-function getCSS(varName){
-  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-}
-
-function makeSVG(tag, attrs, text=''){
-  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  for(const k in attrs) el.setAttribute(k, attrs[k]);
-  if (text) el.textContent = text;
-  return el;
-}
-
-/* ============================================================
-   Wire-up
-   ============================================================ */
+/* ================ 이벤트 ================ */
 btnStart.addEventListener('click', start);
+btnPrev.addEventListener('click', prevStep);
 btnNext.addEventListener('click', nextStep);
 btnReset.addEventListener('click', resetAll);
 
